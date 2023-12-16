@@ -11,82 +11,65 @@ FASTLED_USING_NAMESPACE
 CRGB leds[NUM_LEDS];
 
 void setup() {
+  Serial.begin(9600);
   FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(255);
+  Serial.println("WELCOME TO UNOSTROMEK - INTERNETOVY STROMEK PROJEKT BISKUPOVA");
 }
 
-
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { rainbowWithGlitter, confetti, sinelon, juggle, bpm };
+SimplePatternList gPatterns = { rainbow, sinelon, blwhite };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
-  
-void loop()
-{
+
+String serialColor;  
+String lastSerialColor;
+bool gHueEnabled = false;
+
+void loop(){
   gPatterns[gCurrentPatternNumber]();
 
   FastLED.show();  
+  FastLED.delay(16);
+ 
+  if (Serial.available()){ serialColor = Serial.readString(); if(lastSerialColor != serialColor) gHue = serialColor.toInt(); Serial.println("DOSTAL SOM FARBU"); gHueEnabled = false; }
+  
 
-  EVERY_N_MILLISECONDS(20) { gHue++; } // slowly cycle the "base color" through the rainbow
-  EVERY_N_SECONDS(30) { nextPattern(); } // change patterns periodically
+  EVERY_N_MILLISECONDS(100) { if(gHueEnabled) gHue++; } // slowly cycle the "base color" through the rainbow
+  EVERY_N_SECONDS(120) {  nextPattern(); } // change patterns periodically
+  EVERY_N_SECONDS(60) { returnToAutohue(); }
 }
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
-void nextPattern()
-{
-  // add one to the current pattern number, and wrap around at the end
-  gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE( gPatterns);
-}
+void returnToAutohue(){  if(serialColor == lastSerialColor) {gHueEnabled = true; Serial.println("IDEM NA AUTOHUE");} lastSerialColor = serialColor; }
 
-void rainbowWithGlitter() 
-{
-  fill_rainbow( leds, NUM_LEDS, gHue, 7);
-  addGlitter(80);
-}
+void nextPattern(){ gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE( gPatterns); }
 
-void addGlitter( fract8 chanceOfGlitter) 
-{
-  if( random8() < chanceOfGlitter) {
-    leds[ random16(NUM_LEDS) ] += CRGB::White;
-  }
-}
-
-void confetti() 
-{
-  // random colored speckles that blink in and fade smoothly
-  fadeToBlackBy( leds, NUM_LEDS, 10);
+void rainbow() {
+  fadeToBlackBy( leds, NUM_LEDS, 1);
   int pos = random16(NUM_LEDS);
-  leds[pos] += CHSV( gHue + random8(64), 200, 255);
+  leds[pos] += CHSV( gHue, 16 + random8(200), 100 + random8(100));
 }
 
-void sinelon()
-{
+void sinelon(){
   // a colored dot sweeping back and forth, with fading trails
-  fadeToBlackBy( leds, NUM_LEDS, 20);
-  int pos = beatsin16( 13, 0, NUM_LEDS-1 );
+  fadeToBlackBy( leds, NUM_LEDS, 1);
+  int pos = beatsin16( 5, 0, NUM_LEDS-1 );
   leds[pos] += CHSV( gHue, 255, 192);
 }
 
-void bpm()
-{
-  // colored stripes pulsing at a defined Beats-Per-Minute (BPM)
-  uint8_t BeatsPerMinute = 62;
-  CRGBPalette16 palette = PartyColors_p;
-  uint8_t beat = beatsin8( BeatsPerMinute, 64, 255);
-  for( int i = 0; i < NUM_LEDS; i++) { //9948
-    leds[i] = ColorFromPalette(palette, gHue+(i*2), beat-gHue+(i*10));
+int fader = 0;
+
+void blwhite(){
+  CRGBPalette16 palette = OceanColors_p;
+  int pos = beatsin16(5, 0, NUM_LEDS);
+  leds[pos] = ColorFromPalette(palette, 0+random8(255), 50+random8(100));
+  if (fader >= 2){
+     fadeToBlackBy(leds, NUM_LEDS, 1);
+     fader = 0;
+  }else{
+     fader++;
   }
 }
-
-void juggle() {
-  // eight colored dots, weaving in and out of sync with each other
-  fadeToBlackBy( leds, NUM_LEDS, 20);
-  uint8_t dothue = 0;
-  for( int i = 0; i < 8; i++) {
-    leds[beatsin16( i+7, 0, NUM_LEDS-1 )] |= CHSV(dothue, 200, 255);
-    dothue += 32;
-  }
-}
-
