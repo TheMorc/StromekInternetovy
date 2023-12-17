@@ -14,18 +14,17 @@ from urllib.request import urlopen
 import serial
 import colorsys
 
-arduino = serial.Serial("/dev/ttyACM0", 9600)
+arduino = serial.Serial("/dev/ttyACM0", 115200)
 
 
 # A function to set the LedBorg colours
 def SetLedBorg(red, green, blue):
     hue, sat, val = colorsys.rgb_to_hsv(red,green,blue)
-    print("Sending hue: " + str(int(hue*255)))
-    arduino.write(str(int(hue*255)).encode())
-
-# A function to turn the LedBorg off
-def LedBorgOff():
-    SetLedBorg(0, 0, 0)
+    #print("sending hue: " + str(int(hue*255)))
+    if red and green and blue == 1:
+        arduino.write("W_".encode())
+    else:
+        arduino.write(str(int(hue*255)).encode())
 
 # Setup parameters
 cheerlightsUrl = 'http://api.thingspeak.com/channels/1417/field/1/last.txt'
@@ -44,6 +43,9 @@ colourMap = {'red':         (1.0,   0.0,    0.0),
              'oldlace':     (1.0,   1.0,    0.9)}
 
 while True:
+    if (arduino.inWaiting() > 0):
+        data_str = arduino.read(arduino.inWaiting()).decode('utf-8') 
+        print(data_str)
     try:                                                # Attempt the following:
         with urlopen(cheerlightsUrl) as colourResponse:
             colourName = colourResponse.read().decode("utf-8")
@@ -51,7 +53,7 @@ while True:
                 red, green, blue = colourMap[colourName]            # Get the LedBorg colour to use from the name
             else:
                 red, green, blue = (0.0, 0.5, 0.5)
-            print("current color: " + colourName)
+            print("current web color: " + colourName)
             SetLedBorg(red, green, blue)
     except Exception as e:                                             # If we have an error
         print("ZESER:")
