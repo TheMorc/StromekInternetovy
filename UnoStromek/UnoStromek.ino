@@ -11,7 +11,7 @@ FASTLED_USING_NAMESPACE
 CRGB leds[NUM_LEDS];
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(255);
   Serial.println("WELCOME TO UNOSTROMEK - INTERNETOVY STROMEK PROJEKT BISKUPOVA");
@@ -22,49 +22,69 @@ SimplePatternList gPatterns = { rainbow, sinelon, blwhite };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
+uint8_t gSat = 255;
 
-String serialColor;  
-String lastSerialColor;
+int serialColor, currColor, lastColor;
 bool gHueEnabled = false;
 
 void loop(){
   gPatterns[gCurrentPatternNumber]();
 
   FastLED.show();  
-  FastLED.delay(16);
+  FastLED.delay(1000/120);
  
-  if (Serial.available()){ serialColor = Serial.readString(); if(lastSerialColor != serialColor) gHue = serialColor.toInt(); Serial.println("DOSTAL SOM FARBU"); gHueEnabled = false; }
+  while (Serial.available() > 0) {
+    char receivedByte = Serial.read();
+    serialColor = (serialColor * 10) + (receivedByte - '0');
+  }
+
+  if (serialColor != 0){
+     Serial.print("NOVA FARBA: ");
+     Serial.println(serialColor);
+     currColor = serialColor;
+     serialColor = 0;
+  }
   
+  if(lastColor != currColor) {
+     if (currColor == 437) {
+        gSat = 0;
+     }else{
+        gHue = currColor;
+        gSat = 255;
+     }
+    gHueEnabled = false;
+  }
 
   EVERY_N_MILLISECONDS(100) { if(gHueEnabled) gHue++; } // slowly cycle the "base color" through the rainbow
-  EVERY_N_SECONDS(120) {  nextPattern(); } // change patterns periodically
-  EVERY_N_SECONDS(60) { returnToAutohue(); }
+  EVERY_N_SECONDS(120) { Serial.println("MENIM PATTERN"); nextPattern(); } // change patterns periodically
+  EVERY_N_SECONDS(300) { returnToAutohue(); }
+  
 }
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
-void returnToAutohue(){  if(serialColor == lastSerialColor) {gHueEnabled = true; Serial.println("IDEM NA AUTOHUE");} lastSerialColor = serialColor; }
+void returnToAutohue(){  if(currColor == lastColor) { gHueEnabled = true; gSat = 255; Serial.println("IDEM NA AUTOHUE");} lastColor = currColor; }
 
 void nextPattern(){ gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE( gPatterns); }
 
 void rainbow() {
   fadeToBlackBy( leds, NUM_LEDS, 1);
   int pos = random16(NUM_LEDS);
-  leds[pos] += CHSV( gHue, 16 + random8(200), 100 + random8(100));
+  leds[pos] += CHSV( gHue, random8(gSat), 100 + random8(100));
 }
 
 void sinelon(){
   // a colored dot sweeping back and forth, with fading trails
   fadeToBlackBy( leds, NUM_LEDS, 1);
   int pos = beatsin16( 5, 0, NUM_LEDS-1 );
-  leds[pos] += CHSV( gHue, 255, 192);
+  leds[pos] += CHSV( gHue, gSat, 192);
 }
 
 int fader = 0;
 
 void blwhite(){
   CRGBPalette16 palette = OceanColors_p;
-  int pos = beatsin16(5, 0, NUM_LEDS);
+  int pos = beatsin16(5, 0, NUM_LEDS-1);
   leds[pos] = ColorFromPalette(palette, 0+random8(255), 50+random8(100));
   if (fader >= 2){
      fadeToBlackBy(leds, NUM_LEDS, 1);
