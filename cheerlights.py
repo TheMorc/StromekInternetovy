@@ -13,9 +13,10 @@ import time
 from urllib.request import urlopen
 import serial
 import colorsys
+from datetime import datetime
 
 arduino = serial.Serial("/dev/ttyACM0", 115200)
-
+arduino.read()
 
 # A function to set the LedBorg colours
 def SetLedBorg(red, green, blue):
@@ -35,14 +36,34 @@ colourMap = {'red':         (1.0,   0.0,    0.0),
              'cyan':        (0.0,   1.0,    1.0),
              'white':       (1.0,   1.0,    1.0),
              'warmwhite':   (1.0,   1.0,    0.9),
-             'purple':      (0.5,   0.0,    0.5),
+             'purple':      (0.4,   0.0,    0.5),
              'magenta':     (1.0,   0.0,    1.0),
              'yellow':      (1.0,   1.0,    0.0),
              'orange':      (1.0,   0.65,   0.0),
              'pink':        (1.0,   0.75,   0.8),
              'oldlace':     (1.0,   1.0,    0.9)}
 
+lastHour = -2147
+currentHour = -2137
+
 while True:
+    print("current hour:" + str(currentHour) + " | lastHour: " + str(lastHour))
+    now = datetime.now()
+    currentHour = int(now.strftime("%H"))
+    if currentHour != lastHour:
+        print("Hour change")
+        if currentHour == 6:
+            print("full brightness")
+            arduino.write("BR1".encode())
+        elif currentHour == 21:
+            print("half brightness")
+            arduino.write("BR2".encode())
+        elif currentHour == 0:
+            print("low brightness")
+            arduino.write("BR1".encode())
+        elif currentHour == 1:
+            print("no brightness")
+            arduino.write("BR0".encode())
     if (arduino.inWaiting() > 0):
         data_str = arduino.read(arduino.inWaiting()).decode('utf-8') 
         print(data_str)
@@ -60,4 +81,6 @@ while True:
         print(e)
         pass                                                # Ignore it (do nothing)
     finally:                                            # Regardless of errors:
+        lastHour = currentHour
         time.sleep(10)
+
