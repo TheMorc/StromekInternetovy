@@ -18,7 +18,8 @@ void setup() {
 }
 
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { rainbow, sinelon, blwhite };
+SimplePatternList gPatterns = { fade, rainbow, sinelon, still };
+
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
@@ -31,7 +32,7 @@ void loop(){
   gPatterns[gCurrentPatternNumber]();
 
   FastLED.show();  
-  FastLED.delay(1000/120);
+  FastLED.delay(1000/60);
  
   while (Serial.available() > 0) {
     char receivedByte = Serial.read();
@@ -46,8 +47,16 @@ void loop(){
   }
   
   if(lastColor != currColor) {
-     if (currColor == 437) {
+     if (currColor == 437) { //W_
         gSat = 0;
+     }else if (currColor == 2140){ //BR0
+        FastLED.setBrightness(0);
+     }else if (currColor == 2141){ //BR1
+        FastLED.setBrightness(32);
+     }else if (currColor == 2142){ //BR2
+        FastLED.setBrightness(128);
+     }else if (currColor == 2143){ //BR3
+        FastLED.setBrightness(255);
      }else{
         gHue = currColor;
         gSat = 255;
@@ -57,7 +66,7 @@ void loop(){
 
   EVERY_N_MILLISECONDS(100) { if(gHueEnabled) gHue++; } // slowly cycle the "base color" through the rainbow
   EVERY_N_SECONDS(120) { Serial.println("MENIM PATTERN"); nextPattern(); } // change patterns periodically
-  EVERY_N_SECONDS(300) { returnToAutohue(); }
+  //EVERY_N_SECONDS(300) { returnToAutohue(); }
   
 }
 
@@ -67,10 +76,16 @@ void returnToAutohue(){  if(currColor == lastColor) { gHueEnabled = true; gSat =
 
 void nextPattern(){ gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE( gPatterns); }
 
+int slowdown = 0;
+
 void rainbow() {
   fadeToBlackBy( leds, NUM_LEDS, 1);
   int pos = random16(NUM_LEDS);
-  leds[pos] += CHSV( gHue, random8(gSat), 100 + random8(100));
+  if (slowdown > 1){
+     slowdown = 0;
+     leds[pos] += CHSV( gHue, 100 + random8(155), 100 + random8(100));
+  }
+  slowdown++;
 }
 
 void sinelon(){
@@ -80,16 +95,23 @@ void sinelon(){
   leds[pos] += CHSV( gHue, gSat, 192);
 }
 
-int fader = 0;
+void still() {
+  int pos = random16(NUM_LEDS);
+  leds[pos] = CHSV( gHue, 200 + random8(55), 100 + random8(100));
+}
 
-void blwhite(){
-  CRGBPalette16 palette = OceanColors_p;
-  int pos = beatsin16(5, 0, NUM_LEDS-1);
-  leds[pos] = ColorFromPalette(palette, 0+random8(255), 50+random8(100));
-  if (fader >= 2){
-     fadeToBlackBy(leds, NUM_LEDS, 1);
-     fader = 0;
-  }else{
-     fader++;
-  }
+int fadeState = 0;
+int fadeDirection = 1;
+
+void fade(){
+   for(int i; i < NUM_LEDS; i++){
+      leds[i] = CHSV( gHue, gSat, fadeState);
+   }
+   
+   if (fadeState >= 254)
+	   fadeDirection = -1;
+   if (fadeState <= 128)
+       fadeDirection = 1;
+ 
+   fadeState = fadeState + fadeDirection;
 }
