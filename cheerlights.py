@@ -5,9 +5,6 @@
 # v sudo nano /etc/rc.local 
 #
 
-
-
-# Import the library functions we need
 from __future__ import division
 import time
 from urllib.request import urlopen
@@ -19,33 +16,32 @@ arduino = serial.Serial("/dev/ttyACM0", 115200)
 print("Arduino reset delay")
 time.sleep(3)
 
-# A function to set the LedBorg colours
-def SetLedBorg(red, green, blue):
-    hue, sat, val = colorsys.rgb_to_hsv(red,green,blue)
+def SetLedBorg(hue):
     #print("sending hue: " + str(int(hue*255)))
-    if red and green and blue == 1:
+    if hue == -1:
         arduino.write("W_".encode())
+    elif hue == -2:
+        arduino.write("R_".encode())
     else:
-        arduino.write(str(int(hue*255)).encode())
+        arduino.write(str(int(hue)).encode())
 
-# Setup parameters
 cheerlightsUrl = 'http://api.thingspeak.com/channels/1417/field/1/last.txt'
-#            Name           Red     Green   Blue
-colourMap = {'red':         (1.0,   0.0,    0.0),
-             'green':       (0.0,   1.0,    0.0),
-             'blue':        (0.0,   0.0,    1.0),
-             'cyan':        (0.0,   1.0,    1.0),
-             'white':       (1.0,   1.0,    1.0),
-             'warmwhite':   (1.0,   1.0,    0.9),
-             'purple':      (0.4,   0.0,    0.5),
-             'magenta':     (1.0,   0.0,    1.0),
-             'yellow':      (1.0,   1.0,    0.0),
-             'orange':      (1.0,   0.65,   0.0),
-             'pink':        (1.0,   0.75,   0.8),
-             'oldlace':     (1.0,   1.0,    0.9)}
+
+colourMap = {'red':         0,
+             'green':       95,
+             'blue':        170,
+             'cyan':        120,
+             'white':       -1,
+             'warmwhite':   -2,
+             'purple':      185,
+             'magenta':     200,
+             'yellow':      65,
+             'orange':      35,
+             'pink':        235,
+             'oldlace':     -2}
 
 lastColor = ""
-lastHour = -2147
+lastHour = 2137
 currentHour = -2137
 
 while True:
@@ -74,11 +70,9 @@ while True:
             with urlopen(cheerlightsUrl) as colourResponse:
                 colourName = colourResponse.read().decode("utf-8")
                 if colourName in colourMap:                   # If we recognise this colour name then ...
-                    red, green, blue = colourMap[colourName]            # Get the LedBorg colour to use from the name
-                else:
-                    red, green, blue = (0.0, 0.5, 0.5)
+                    hue = colourMap[colourName]
                 if lastColor != colourName:
-                    SetLedBorg(red, green, blue)
+                    SetLedBorg(hue)
                     print("new web color: " + colourName)
                 lastColor = colourName
     except Exception as e:                                             # If we have an error
