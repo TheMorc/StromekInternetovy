@@ -14,16 +14,17 @@ void setup() {
   Serial.begin(115200);
   FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(255);
-  Serial.println("WELCOME TO UNOSTROMEK - INTERNETOVY STROMEK PROJEKT BISKUPOVA");
+  Serial.print("WELCOME TO UNOSTROMEK - INTERNETOVY STROMEK PROJEKT BISKUPOVA");
 }
 
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { fade, rainbow, sinelon, still };
+SimplePatternList gPatterns = {fade, rainbow, sinelon, still};
 
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
-uint8_t gSat = 255;
+uint8_t gSat = 0;
+uint8_t gRPiSat = 200;
 
 int serialColor, currColor, lastColor;
 bool gHueEnabled = false;
@@ -32,7 +33,7 @@ void loop(){
   gPatterns[gCurrentPatternNumber]();
 
   FastLED.show();  
-  FastLED.delay(1000/60);
+  FastLED.delay(1000/75);
  
   while (Serial.available() > 0) {
     char receivedByte = Serial.read();
@@ -41,14 +42,17 @@ void loop(){
 
   if (serialColor != 0){
      Serial.print("NOVA FARBA: ");
-     Serial.println(serialColor);
+     Serial.print(serialColor);
      currColor = serialColor;
      serialColor = 0;
   }
   
   if(lastColor != currColor) {
      if (currColor == 437) { //W_
-        gSat = 0;
+        gRPiSat = 0;
+     }else if (currColor == 387){ //R_
+        gHue = 65;
+        gRPiSat = 60;
      }else if (currColor == 2140){ //BR0
         FastLED.setBrightness(0);
      }else if (currColor == 2141){ //BR1
@@ -59,45 +63,44 @@ void loop(){
         FastLED.setBrightness(255);
      }else{
         gHue = currColor;
-        gSat = 255;
+        gRPiSat = 200;
      }
-    gHueEnabled = false;
   }
-
-  EVERY_N_MILLISECONDS(100) { if(gHueEnabled) gHue++; } // slowly cycle the "base color" through the rainbow
-  EVERY_N_SECONDS(120) { Serial.println("MENIM PATTERN"); nextPattern(); } // change patterns periodically
-  //EVERY_N_SECONDS(300) { returnToAutohue(); }
   
+  if (gRPiSat != 0)
+     gSat = gRPiSat + random8(55);
+  else
+     gSat = 0;
+  
+  EVERY_N_SECONDS(120) { Serial.print("MENIM PATTERN"); nextPattern(); } // change patterns periodically 
 }
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
-void returnToAutohue(){  if(currColor == lastColor) { gHueEnabled = true; gSat = 255; Serial.println("IDEM NA AUTOHUE");} lastColor = currColor; }
-
 void nextPattern(){ gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE( gPatterns); }
 
 int slowdown = 0;
+int pos = 0;
 
 void rainbow() {
   fadeToBlackBy( leds, NUM_LEDS, 1);
-  int pos = random16(NUM_LEDS);
-  if (slowdown > 1){
+  leds[pos] += CHSV(gHue, gSat, 50 + random8(100));
+  if (slowdown > 3){
      slowdown = 0;
-     leds[pos] += CHSV( gHue, 100 + random8(155), 100 + random8(100));
+     pos = random16(NUM_LEDS);
   }
   slowdown++;
 }
 
 void sinelon(){
-  // a colored dot sweeping back and forth, with fading trails
   fadeToBlackBy( leds, NUM_LEDS, 1);
   int pos = beatsin16( 5, 0, NUM_LEDS-1 );
-  leds[pos] += CHSV( gHue, gSat, 192);
+  leds[pos] += CHSV( gHue, gSat, 50 + random8(100));
 }
 
 void still() {
-  int pos = random16(NUM_LEDS);
-  leds[pos] = CHSV( gHue, 200 + random8(55), 100 + random8(100));
+  pos = random16(NUM_LEDS);
+  leds[pos] = CHSV( gHue, gSat, 100 + random8(100));
 }
 
 int fadeState = 0;
@@ -105,7 +108,10 @@ int fadeDirection = 1;
 
 void fade(){
    for(int i; i < NUM_LEDS; i++){
-      leds[i] = CHSV( gHue, gSat, fadeState);
+      if (fadeDirection == 1)
+          leds[i] += CHSV( gHue, gSat, 1);
+      else
+          leds[i] -= CHSV( gHue, gSat, 1);
    }
    
    if (fadeState >= 254)
