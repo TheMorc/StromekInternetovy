@@ -50,16 +50,16 @@ while True:
     currentHour = int(now.strftime("%H"))
     if currentHour != lastHour:
         print("Hour change")
-        if currentHour == 6:
+        if currentHour >= 6 and currentHour <= 18:
             print("full brightness")
-            arduino.write("BR1".encode())
+            arduino.write("BR3".encode())
         elif currentHour >= 19 and currentHour <= 21:
             print("half brightness")
             arduino.write("BR2".encode())
         elif currentHour == 22 or currentHour == 23 or currentHour == 0:
             print("low brightness")
             arduino.write("BR1".encode())
-        elif currentHour == 1:
+        elif currentHour >= 1 and currentHour <= 5:
             print("no brightness")
             arduino.write("BR0".encode())
     if (arduino.inWaiting() > 0):
